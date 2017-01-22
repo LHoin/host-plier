@@ -111,18 +111,17 @@ view recordsWithIndexToView = map (\v -> showIp v) recordsWithIndexToView
         ipValue = ip r
         openValue = open r
 
-openRecord records selected = map _open records 
+openRecord records hostNameSelected ipValueSelected = map _open records 
   where
-    ipValueSelected = ip selected
-    hostNameSelected = hostName selected
     _open r@TextRecord {} = r
     _open r@ValueRecord {}
-      | ipValue == ipValueSelected && hostNameValue == hostNameSelected = r { open = True }
-      | hostNameValue == hostNameSelected = r { open = False }
+      | ipValue == ipValueSelected && hostNameMatched = r { open = True }
+      | hostNameMatched = r { open = False }
       | otherwise = r
       where
         ipValue = ip r 
-        hostNameValue = hostName r 
+        hostNameValue = hostName r
+        hostNameMatched = elem hostNameSelected hostNameValue
 
 gopenRecord records groupname = map _open records 
   where
@@ -160,30 +159,49 @@ execute "view" result args = printLines $ view $ records
     records = recordsWithIndex hostname allRecords 
 
 execute "open" result args
-  | (length ipList) < 1 = do
+  | length args > 2 = do 
+      let
+        ipValue = args !! 2
+        fileContent = getFileContent ipValue 
+        laststeps
+          | isIp ipValue = do
+            putStr $ show $ length fileContent
+            putStrLn " Chars"
+            printLines ["Try to use " ++ ipValue ++ " for " ++ hostname]
+            writeFile "/etc/hosts" fileContent
+            printLines ["Complete\n"] 
+          | otherwise = do 
+            printLines ["Wrong ip format"] 
+      laststeps
+  | ipCount < 1 = do
     printLines ["no host matched"] 
   | otherwise = do
+    putStrLn "Choose ip to use: "
     printLines $ view $ records
     putStrLn ""
-    putStrLn "choose ip to use: "
+    putStrLn "Enter line number: "
     num <- getLine
+    putStrLn ""
     let 
       selected = filter (\v -> (show $ fst v) == num) records 
       openSelected = map snd selected 
-      fileContent = toHostFile $ (zip [0..]) $ openRecord allRecords (openSelected !! 0)
+      ipValue = ip $ openSelected !! 0
+      fileContent = getFileContent ipValue 
       laststeps
         | (length openSelected) > 0 = do
-          printLines $ map show openSelected 
+          printLines ["Try to use " ++ ipValue ++ " for " ++ hostname]
           writeFile "/etc/hosts" fileContent
-          printLines ["completed"] 
+          printLines ["Complete\n"] 
         | otherwise = do 
-          printLines ["choose a wrong ip"] 
+          printLines ["Wrong line number\n"] 
     laststeps
   where 
-    ipList = view $ records
     hostname = args !! 1
     allRecords = toRecords $ toLinesGroup result
     records = recordsWithIndex hostname allRecords 
+    ipCount = length $ view $ records
+    getFileContent = toHostFile . (zip [0..]) . (openRecord allRecords hostname)
+
 execute "gopen" result args 
   | (length matchRecords) < 1 = do 
     printLines ["no host matched"] 
@@ -197,6 +215,7 @@ execute "gopen" result args
     allRecords = toRecords $ toLinesGroup result
     matchRecords = filter (filterValueRecord (\r -> (group r) == groupname)) allRecords 
     fileContent = toHostFile $ (zip [0..]) $ gopenRecord allRecords groupname 
+
 execute "close" result args = do 
   putStr $ show $ length fileContent
   putStrLn " Chars"
@@ -206,6 +225,7 @@ execute "close" result args = do
     hostname = args !! 1
     allRecords = toRecords $ toLinesGroup result
     fileContent = toHostFile $ (zip [0..]) $ closeRecord allRecords hostname 
+
 execute "gclose" result args
   | (length matchRecords) < 1 = do 
     printLines ["no host matched"] 
@@ -219,18 +239,19 @@ execute "gclose" result args
     allRecords = toRecords $ toLinesGroup result
     matchRecords = filter (filterValueRecord (\r -> (group r) == groupname)) allRecords 
     fileContent = toHostFile $ (zip [0..]) $ gcloseRecord allRecords groupname 
+
 execute "iplist" result args = do
   printLines [iplist] 
   where 
-    groupname = args !! 1
     allRecords = toRecords $ toLinesGroup result
     iplist = trim $ foldl (makeString ip) "" allRecords 
+
 execute "hostlist" result args = do
   printLines [hostlist] 
   where 
-    groupname = args !! 1
     allRecords = toRecords $ toLinesGroup result
     hostlist = trim $ foldl (makeString((join " ") . hostName)) "" allRecords 
+
 execute "op" result args = do
   printLines ["open gopen close gclose iplist hostlist"] 
 execute _ _ _ = printLines ["unknown operation"]
