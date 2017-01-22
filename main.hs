@@ -1,46 +1,8 @@
 import System.Environment
 import System.IO
-import Data.Char (isSpace)
-import Text.Regex.Posix
-
-isIp :: String -> Bool
-isIp x = x =~ "^(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])\\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[0-9])$"
-
-trim :: String -> String
-trim = f . f
-   where f = reverse . dropWhile isSpace
-
-join spliter xs
-  | xs == [] = ""
-  | otherwise = tail $ foldl (_join spliter) "" xs
-  where
-    _join spliter result str = result ++ spliter ++ str
-
-startsWith :: String -> String -> Bool
-startsWith _ [] = True
-startsWith [] _ = False
-startsWith (hl:tl) (hs:ts) 
-  | hl == hs = startsWith tl ts
-  | otherwise = False
-
-data HostRecord = ValueRecord {
-  ip :: String,
-  hostName :: [String],
-  group :: String,
-  open :: Bool,
-  originText:: String
-} | TextRecord {
-  originText:: String
-} deriving (Show) 
-
-split :: [Char] -> String -> [String]
-split spliter "" = []
-split spliter str = foldl (_split spliter) [""] str
-  where 
-    _split :: [Char] -> [String] -> Char -> [String]
-    _split spliter result char
-      | (elem char spliter) = result ++ [""]
-      | otherwise = (init result) ++ [(last result) ++ [char]]
+import HostPlier.String
+import HostPlier.List
+import HostPlier.HostRecord
 
 formatHostNames xs = foldl _format [] xs
   where
@@ -109,22 +71,16 @@ toRecords lines = foldl _toRecords [] lines
           where
             hostNameValue = hostName r 
 
-toHostLine :: HostRecord -> String
-toHostLine (TextRecord {originText=text}) = text ++ "\n"
-toHostLine r@ValueRecord {} = comment ++ (ip r) ++ " " ++ (join " " $ hostName r) ++ "\n"
-  where
-    comment = if open r then "" else "#"
-
 toHostFile recordsIdx
   | (length recordsIdx) < 1  = ""
   | otherwise = foldl _step "" recordsIdx
   where
     _step result (_, TextRecord {originText=text}) = result ++ text ++ "\n"
     _step result (index, r@ValueRecord {}) 
-      | groupValue == "" && lastGroupValue /= "" = result ++ "#====\n\n" ++ (toHostLine r)
-      | groupValue /= "" && lastGroupValue == "" = result ++ "\n#==== " ++ groupValue ++ "\n" ++(toHostLine r)
-      | groupValue == lastGroupValue = result ++ (toHostLine r)
-      | groupValue /= lastGroupValue = result ++ "#====\n\n#==== " ++ groupValue ++ "\n" ++ (toHostLine r)
+      | groupValue == "" && lastGroupValue /= "" = result ++ "#====\n\n" ++ (show r)
+      | groupValue /= "" && lastGroupValue == "" = result ++ "\n#==== " ++ groupValue ++ "\n" ++(show r)
+      | groupValue == lastGroupValue = result ++ (show r)
+      | groupValue /= lastGroupValue = result ++ "#====\n\n#==== " ++ groupValue ++ "\n" ++ (show r)
       where 
         _group r@TextRecord {} = ""
         _group r@ValueRecord {} = group r 
@@ -202,6 +158,7 @@ execute "view" result args = printLines $ view $ records
     hostname = args !! 1
     allRecords = toRecords $ toLinesGroup result
     records = recordsWithIndex hostname allRecords 
+
 execute "open" result args
   | (length ipList) < 1 = do
     printLines ["no host matched"] 
