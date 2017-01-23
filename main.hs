@@ -125,6 +125,15 @@ openRecord records hostNameSelected ipValueSelected
       where
         hostNameMatched = elem hostNameSelected hostNameValue
 
+removeRecord records hostNameSelected ipValueSelected = filter _remove records
+  where
+    _remove r@TextRecord {} = True 
+    _remove r@ValueRecord {ip=ipValue, hostName=hostNameValue}
+      | ipValue == ipValueSelected && hostNameMatched = False 
+      | otherwise = True 
+      where
+        hostNameMatched = elem hostNameSelected hostNameValue
+
 gopenRecord records groupname = map _open records 
   where
     _open r@TextRecord {} = r
@@ -152,7 +161,9 @@ gcloseRecord records groupname = map _close records
       where
         groupValue = group r 
       
-printLines = mapM putStrLn 
+printLines list = do 
+  mapM putStrLn list
+  return ()
 
 printIpList records = do
   putStrLn "Choose ip to use: "
@@ -160,28 +171,42 @@ printIpList records = do
   printLines ["", "Enter line number: "]
   getLine
 
-writeHostFile ipValue hostname allRecords = do
+writeHostFileOpen (ipValue, hostname, allRecords) = do
   putStr $ show $ length fileContent
   putStrLn " Chars"
   printLines ["Try to use " ++ ipValue ++ " for " ++ hostname]
   writeFile "/etc/hosts" fileContent
   printLines ["Complete\n"] 
+  return ()
   where
     getFileContent = toHostFile . (zip [0..]) . (openRecord allRecords hostname)
     fileContent = getFileContent ipValue 
 
-fetchIpToUse result args handle
+writeHostFileRemove (ipValue, hostname, allRecords) = do
+  putStr $ show $ length fileContent
+  putStrLn " Chars"
+  printLines ["Try to remove" ++ ipValue ++ " of " ++ hostname]
+  writeFile "/etc/hosts" fileContent
+  printLines ["Complete\n"] 
+  return ()
+  where
+    getFileContent = toHostFile . (zip [0..]) . (removeRecord allRecords hostname)
+    fileContent = getFileContent ipValue 
+
+fetchIpToUse result args
   | length args > 2 = do 
       let
         ipValue = args !! 2
         laststeps
           | isIp ipValue = do
-            handle ipValue hostname allRecords
+            return  (Just (ipValue,hostname,allRecords))
           | otherwise = do 
             printLines ["Wrong ip format"] 
+            return Nothing
       laststeps
   | ipCount < 1 = do
     printLines ["no host matched"] 
+    return Nothing
   | otherwise = do
     num <- printIpList records
     putStrLn ""
@@ -191,9 +216,10 @@ fetchIpToUse result args handle
       ipValue = ip $ openSelected !! 0
       laststeps
         | (length openSelected) > 0 = do
-          handle ipValue hostname allRecords
+          return  (Just (ipValue,hostname,allRecords))
         | otherwise = do 
           printLines ["Wrong line number\n"] 
+          return Nothing
     laststeps
   where 
     hostname = args !! 1
@@ -201,8 +227,16 @@ fetchIpToUse result args handle
     records = recordsWithIndex hostname allRecords 
     ipCount = length $ view $ records
 
+extractIO (Just io) = io 
+extractIO Nothing = return ()
+
+execute "remove" result args = do
+  ipValue <- fetchIpToUse result args 
+  extractIO (writeHostFileRemove <$> ipValue)
+
 execute "open" result args = do
-  fetchIpToUse result args writeHostFile
+  ipValue <- fetchIpToUse result args 
+  extractIO (writeHostFileOpen <$> ipValue)
 
 execute "gopen" result args 
   | (length matchRecords) < 1 = do 
