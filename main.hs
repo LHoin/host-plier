@@ -258,7 +258,7 @@ execute "hostlist" result args = do
     hostlist = trim $ foldl (makeString((join " ") . hostName)) "" allRecords 
 
 execute "op" result args = do
-  printLines ["open gopen close gclose iplist hostlist"] 
+  printLines ["open gopen close gclose remove iplist hostlist"] 
 execute _ _ _ = printLines ["unknown operation"]
 
 main = do 
