@@ -4,7 +4,7 @@ module HostPlier.String (
   startsWith
 ) where
 
-import Text.Regex.Posix
+import Text.Regex.PCRE
 import Data.Char (isSpace)
 
 isIp :: String -> Bool

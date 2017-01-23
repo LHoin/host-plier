@@ -4,37 +4,6 @@ import HostPlier.String
 import HostPlier.List
 import HostPlier.HostRecord
 
-formatHostNames xs = foldl _format [] xs
-  where
-    _format result x
-      | (trim x) == "" = result
-      | otherwise = result ++ [x]
-
-
-toRecord :: String -> String -> HostRecord
-toRecord group line
-  | isValid = ValueRecord {
-      originText = trimedLine,
-      open = open,
-      ip = ip,
-      hostName = formatHostNames $ tail elements,
-      group = group
-    } 
-  | otherwise = TextRecord {
-      originText = trimedLine
-    } 
-  where 
-    trimedLine = trim line
-    open = (head trimedLine) /= '#'
-    elements 
-      | not open =  split " \t" (tail trimedLine)
-      | otherwise = split " \t" trimedLine
-    len = length elements
-    ip = elements !! 0 
-    isValid
-      | line /= "" && len > 1 = isIp ip 
-      | otherwise = False
-   
 
 toLinesWithGroup :: [(String, String)] -> String -> [(String, String)]
 toLinesWithGroup result line 
@@ -185,7 +154,7 @@ writeHostFileOpen (ipValue, hostname, allRecords) = do
 writeHostFileRemove (ipValue, hostname, allRecords) = do
   putStr $ show $ length fileContent
   putStrLn " Chars"
-  printLines ["Try to remove" ++ ipValue ++ " of " ++ hostname]
+  printLines ["Try to remove " ++ ipValue ++ " of " ++ hostname]
   writeFile "/etc/hosts" fileContent
   printLines ["Complete\n"] 
   return ()
