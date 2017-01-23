@@ -259,12 +259,17 @@ execute "hostlist" result args = do
 
 execute "op" result args = do
   printLines ["open gopen close gclose remove iplist hostlist"] 
-execute _ _ _ = printLines ["unknown operation"]
+
+execute _ _ args  
+  | length args > 0 = do 
+    printLines ["Unknown operation"]
+  | otherwise = do
+    printLines ["Need arguments"]
 
 main = do 
   args <- getArgs
   contents <- readFile "/etc/hosts"
   let 
-    operation = args !! 0
+    operation = if (length args > 0) then args !! 0 else ""
     result = split "\n" contents
   execute operation result args 
