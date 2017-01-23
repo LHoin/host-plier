@@ -111,16 +111,18 @@ view recordsWithIndexToView = map (\v -> showIp v) recordsWithIndexToView
         ipValue = ip r
         openValue = open r
 
-openRecord records hostNameSelected ipValueSelected = map _open records 
+openRecord records hostNameSelected ipValueSelected 
+  | hasOneFinal = snd resultFinal
+  | otherwise = (snd resultFinal) ++ [valueRecordDefault {ip=ipValueSelected, hostName=[hostNameSelected], open=True}]
   where
-    _open r@TextRecord {} = r
-    _open r@ValueRecord {}
-      | ipValue == ipValueSelected && hostNameMatched = r { open = True }
-      | hostNameMatched = r { open = False }
-      | otherwise = r
+    resultFinal = foldl _open (False, []) records
+    hasOneFinal = fst resultFinal
+    _open (hasOne, result) r@TextRecord {} = (hasOne || False, result ++ [r])
+    _open (hasOne, result) r@ValueRecord {ip=ipValue, hostName=hostNameValue}
+      | ipValue == ipValueSelected && hostNameMatched = (hasOne || True, result ++ [r { open = True }])
+      | hostNameMatched = (hasOne || False, result ++ [r { open = False }])
+      | otherwise = (hasOne || False, result ++ [r])
       where
-        ipValue = ip r 
-        hostNameValue = hostName r
         hostNameMatched = elem hostNameSelected hostNameValue
 
 gopenRecord records groupname = map _open records 
@@ -152,46 +154,44 @@ gcloseRecord records groupname = map _close records
       
 printLines = mapM putStrLn 
 
-execute "view" result args = printLines $ view $ records
-  where 
-    hostname = args !! 1
-    allRecords = toRecords $ toLinesGroup result
-    records = recordsWithIndex hostname allRecords 
+printIpList records = do
+  putStrLn "Choose ip to use: "
+  printLines $ view $ records
+  printLines ["", "Enter line number: "]
+  getLine
 
-execute "open" result args
+writeHostFile ipValue hostname allRecords = do
+  putStr $ show $ length fileContent
+  putStrLn " Chars"
+  printLines ["Try to use " ++ ipValue ++ " for " ++ hostname]
+  writeFile "/etc/hosts" fileContent
+  printLines ["Complete\n"] 
+  where
+    getFileContent = toHostFile . (zip [0..]) . (openRecord allRecords hostname)
+    fileContent = getFileContent ipValue 
+
+fetchIpToUse result args handle
   | length args > 2 = do 
       let
         ipValue = args !! 2
-        fileContent = getFileContent ipValue 
         laststeps
           | isIp ipValue = do
-            putStr $ show $ length fileContent
-            putStrLn " Chars"
-            printLines ["Try to use " ++ ipValue ++ " for " ++ hostname]
-            writeFile "/etc/hosts" fileContent
-            printLines ["Complete\n"] 
+            handle ipValue hostname allRecords
           | otherwise = do 
             printLines ["Wrong ip format"] 
       laststeps
   | ipCount < 1 = do
     printLines ["no host matched"] 
   | otherwise = do
-    putStrLn "Choose ip to use: "
-    printLines $ view $ records
-    putStrLn ""
-    putStrLn "Enter line number: "
-    num <- getLine
+    num <- printIpList records
     putStrLn ""
     let 
       selected = filter (\v -> (show $ fst v) == num) records 
       openSelected = map snd selected 
       ipValue = ip $ openSelected !! 0
-      fileContent = getFileContent ipValue 
       laststeps
         | (length openSelected) > 0 = do
-          printLines ["Try to use " ++ ipValue ++ " for " ++ hostname]
-          writeFile "/etc/hosts" fileContent
-          printLines ["Complete\n"] 
+          handle ipValue hostname allRecords
         | otherwise = do 
           printLines ["Wrong line number\n"] 
     laststeps
@@ -200,7 +200,9 @@ execute "open" result args
     allRecords = toRecords $ toLinesGroup result
     records = recordsWithIndex hostname allRecords 
     ipCount = length $ view $ records
-    getFileContent = toHostFile . (zip [0..]) . (openRecord allRecords hostname)
+
+execute "open" result args = do
+  fetchIpToUse result args writeHostFile
 
 execute "gopen" result args 
   | (length matchRecords) < 1 = do 

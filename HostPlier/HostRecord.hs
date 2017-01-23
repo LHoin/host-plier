@@ -1,5 +1,6 @@
 module HostPlier.HostRecord (
   HostRecord (..),
+  valueRecordDefault
 ) where
 
 import HostPlier.List
@@ -12,6 +13,14 @@ data HostRecord = ValueRecord {
   originText:: String
 } | TextRecord {
   originText:: String
+}
+
+valueRecordDefault = ValueRecord {
+  ip = "",
+  hostName = [],
+  group = "",
+  open = False,
+  originText = ""
 }
 
 instance Show HostRecord where
