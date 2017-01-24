@@ -1,7 +1,8 @@
 module HostPlier.String (
   isIp,
   trim,
-  startsWith
+  startsWith,
+  replace
 ) where
 
 import Text.Regex.PCRE
@@ -21,3 +22,24 @@ startsWith (hl:tl) (hs:ts)
   | hl == hs = startsWith tl ts
   | otherwise = False
 
+replace :: String -> String -> String -> String
+replace _ _ [] = ""
+replace _ [] _ = ""
+replace newWord wordv strv = _replace ("", wordv, strv) wordv strv
+  where
+    _replace (result, word, str) (w:ws) (s:ss)
+      | (length word) > (length str) = result ++ str
+      | wordLeft == 0 && strLeft == 0 && w /= s = result ++ str 
+      | wordLeft == 0 && strLeft == 0 && w == s = result ++ newWord
+      | wordLeft == 0 && w == s = 
+          let 
+             nextStr = drop (length word) str
+          in _replace (result ++ newWord, word, nextStr) word nextStr
+      | wordLeft > 0 && w == s = _replace (result, word, str) ws ss
+      | w /= s = 
+          let 
+             nextStr = tail str 
+          in _replace (result ++ (take 1 str), word, nextStr) word nextStr
+      where
+        wordLeft = length ws
+        strLeft = length ss

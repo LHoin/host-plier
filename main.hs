@@ -59,7 +59,11 @@ toHostFile recordsIdx
           | otherwise = _group $ snd (recordsIdx !! (index - 1))
 
 makeString str result r@(TextRecord {}) = result 
-makeString str result r@(ValueRecord {}) = result ++ " " ++ (str r)
+makeString str result r@(ValueRecord {})
+  | s /= "" = result ++ "\n" ++ s 
+  | otherwise = result
+  where
+    s = str r 
 
 filterValueRecord f TextRecord {} = False 
 filterValueRecord f r@ValueRecord {} = f r 
@@ -249,16 +253,27 @@ execute "iplist" result args = do
   printLines [iplist] 
   where 
     allRecords = toRecords $ toLinesGroup result
-    iplist = trim $ foldl (makeString ip) "" allRecords 
+    iplist 
+      | length args < 2 = outputIpList allRecords 
+      | otherwise = outputIpList $ filter (filterValueRecord (\ValueRecord {hostName=hostNameValue} -> elem hostname hostNameValue)) allRecords
+      where
+        outputIpList = trim . (foldl (makeString ip) "")
+        hostname = args !! 1
 
 execute "hostlist" result args = do
   printLines [hostlist] 
   where 
     allRecords = toRecords $ toLinesGroup result
-    hostlist = trim $ foldl (makeString((join " ") . hostName)) "" allRecords 
+    hostlist = trim $ foldl (makeString((join "\n") . hostName)) "" allRecords 
+
+execute "grouplist" result args = do
+  printLines [hostlist] 
+  where 
+    allRecords = toRecords $ toLinesGroup result
+    hostlist = trim $ foldl (makeString(group )) "" allRecords 
 
 execute "op" result args = do
-  printLines ["open gopen close gclose remove iplist hostlist"] 
+  printLines ["open", "gopen", "close", "gclose", "remove", "iplist", "hostlist", "grouplist"] 
 
 execute _ _ args  
   | length args > 0 = do 
