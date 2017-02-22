@@ -1,0 +1,35 @@
+#compdef hostp
+#
+_arguments \
+  '1:operations:->opreations' \
+  ':host/group:->hostOrGroup' \
+  ':ip:->ip' \
+
+  case "$state" in
+    (opreations)
+      _alternative \
+        "operation:operation args:($(hostp op))"
+    ;;
+    (hostOrGroup)
+      case $words[2] in
+        (open|close)
+          _alternative \
+            "host:host names:($(hostp hostlist))"
+        ;;
+        (gopen|gclose)
+          group="$(hostp grouplist)"; 
+          while read -r line; do
+            compadd "$line"
+          done <<< "$group"
+        ;;
+      esac
+    ;;
+    (ip)
+      case $words[2] in
+        (open|close)
+          _alternative \
+            "host:host names:($(hostp iplist))"
+        ;;
+      esac
+    ;;
+  esac
